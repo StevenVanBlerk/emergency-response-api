@@ -1,6 +1,6 @@
 import express from "express";
 import {
-  handlePanic,
+  createPanicRequest,
   getPanicRequests,
   getPanicById,
   updatePanicStatus,
@@ -8,7 +8,7 @@ import {
 
 const router = express.Router();
 
-router.post("/", handlePanic);
+router.post("/", createPanicRequest);
 router.get("/", getPanicRequests);
 router.get("/:id", getPanicById);
 router.patch("/:id", updatePanicStatus);

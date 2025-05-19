@@ -24,15 +24,16 @@ model PanicEvent {
 }
 
 model User {
-  id                    String       @id
-  firstName             String
-  lastName              String
-  email                 String
-  contactNumber         String
-  nextOfKinContactNumber String
-  externalId            String
-  panicEvents           PanicEvent[]
+  id                       String   @id @default(uuid())
+  externalId               String   @unique
+  firstName                String
+  lastName                 String
+  email                    String
+  contactNumber            String
+  nextOfKinContactNumber   String
+  panicEvents              PanicEvent[]
 }
+
 
 
 enum Severity {

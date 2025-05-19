@@ -1,42 +1,38 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import prisma from "../db";
-
-const panicSchema = z.object({
-  status: z.enum(["OPEN", "ACKNOWLEDGED", "DISPATCHED", "RESOLVED"]),
-  aidRequired: z.enum(["AMBULANCE", "SECURITY", "POLICE"]),
-  serviceDisplayName: z.string(),
-  timeOfRequest: z.string(),
-  severity: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  location: z.object({
-    lat: z.number(),
-    lng: z.number(),
-    displayValue: z.string(),
-  }),
-  user: z.object({
-    id: z.string(),
-    firstName: z.string(),
-    lastName: z.string(),
-    email: z.string(),
-    contactNumber: z.string(),
-    nextOfKinContactNumber: z.string(),
-    externalId: z.string(),
-  }),
-});
+import { v4 as uuidv4 } from "uuid";
 
 // TO-DO: create endpoint that integrates with 3rd party emergency services APIs to dispatch to the nearest available unit
 
 // POST
-export const handlePanic = async (req: Request, res: Response) => {
+export const createPanicRequest = async (req: Request, res: Response) => {
+  const panicSchema = z.object({
+    aidRequired: z.enum(["AMBULANCE", "SECURITY", "POLICE"]),
+    serviceDisplayName: z.string(),
+    timeOfRequest: z.string(),
+    severity: z.enum(["LOW", "MEDIUM", "HIGH"]),
+    location: z.object({
+      lat: z.number(),
+      lng: z.number(),
+      displayValue: z.string(),
+    }),
+    user: z.object({
+      externalId: z.string(),
+      firstName: z.string(),
+      lastName: z.string(),
+      email: z.string(),
+      contactNumber: z.string(),
+      nextOfKinContactNumber: z.string(),
+    }),
+  });
   const result = panicSchema.safeParse(req.body);
 
   if (!result.success) {
     return res.status(400).json({ error: result.error.errors });
   }
 
-  // request values
   const {
-    status,
     aidRequired,
     serviceDisplayName,
     timeOfRequest,
@@ -46,31 +42,41 @@ export const handlePanic = async (req: Request, res: Response) => {
   } = result.data;
 
   try {
-    // Upsert user in case user already exists
-    const upsertedUser = await prisma.user.upsert({
-      where: { id: user.id },
-      update: {
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        contactNumber: user.contactNumber,
-        nextOfKinContactNumber: user.nextOfKinContactNumber,
-        externalId: user.externalId,
-      },
-      create: {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        contactNumber: user.contactNumber,
-        nextOfKinContactNumber: user.nextOfKinContactNumber,
-        externalId: user.externalId,
-      },
+    // Find existing user by externalId
+    let dbUser = await prisma.user.findUnique({
+      where: { externalId: user.externalId },
     });
+
+    if (dbUser) {
+      // Update user details
+      dbUser = await prisma.user.update({
+        where: { externalId: user.externalId },
+        data: {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          contactNumber: user.contactNumber,
+          nextOfKinContactNumber: user.nextOfKinContactNumber,
+        },
+      });
+    } else {
+      // Create new user with generated UUID
+      dbUser = await prisma.user.create({
+        data: {
+          id: uuidv4(),
+          externalId: user.externalId,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          contactNumber: user.contactNumber,
+          nextOfKinContactNumber: user.nextOfKinContactNumber,
+        },
+      });
+    }
 
     const panic = await prisma.panicEvent.create({
       data: {
-        status,
+        status: "OPEN", // All new panic requests are created as OPEN
         aidRequired,
         serviceDisplayName,
         timeOfRequest: new Date(timeOfRequest),
@@ -78,7 +84,7 @@ export const handlePanic = async (req: Request, res: Response) => {
         lat: location.lat,
         lng: location.lng,
         locationLabel: location.displayValue,
-        userId: upsertedUser.id,
+        userId: dbUser.id,
       },
     });
 
