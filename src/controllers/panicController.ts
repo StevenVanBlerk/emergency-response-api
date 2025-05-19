@@ -4,6 +4,7 @@ import prisma from "../db";
 
 const panicSchema = z.object({
   status: z.enum(["OPEN", "ACKNOWLEDGED", "DISPATCHED", "RESOLVED"]),
+  aidRequired: z.enum(["AMBULANCE", "SECURITY", "POLICE"]),
   serviceDisplayName: z.string(),
   timeOfRequest: z.string(),
   severity: z.enum(["LOW", "MEDIUM", "HIGH"]),
@@ -23,6 +24,8 @@ const panicSchema = z.object({
   }),
 });
 
+// TO-DO: create endpoint that integrates with 3rd party emergency services APIs to dispatch to the nearest available unit
+
 // POST
 export const handlePanic = async (req: Request, res: Response) => {
   const result = panicSchema.safeParse(req.body);
@@ -31,8 +34,10 @@ export const handlePanic = async (req: Request, res: Response) => {
     return res.status(400).json({ error: result.error.errors });
   }
 
+  // request values
   const {
     status,
+    aidRequired,
     serviceDisplayName,
     timeOfRequest,
     severity,
@@ -66,6 +71,7 @@ export const handlePanic = async (req: Request, res: Response) => {
     const panic = await prisma.panicEvent.create({
       data: {
         status,
+        aidRequired,
         serviceDisplayName,
         timeOfRequest: new Date(timeOfRequest),
         severity,
@@ -84,10 +90,9 @@ export const handlePanic = async (req: Request, res: Response) => {
 };
 
 // GET
-export const getActivePanics = async (req: Request, res: Response) => {
+export const getPanicRequests = async (req: Request, res: Response) => {
   try {
     const panics = await prisma.panicEvent.findMany({
-      where: { status: "OPEN" },
       orderBy: { createdAt: "desc" },
       include: { user: true },
     });
@@ -95,6 +100,7 @@ export const getActivePanics = async (req: Request, res: Response) => {
     const formatted = panics.map((panic) => ({
       id: panic.id,
       status: panic.status,
+      aidRequired: panic.aidRequired,
       serviceDisplayName: panic.serviceDisplayName,
       timeOfRequest: panic.timeOfRequest.toISOString(),
       severity: panic.severity,
@@ -117,7 +123,7 @@ export const getActivePanics = async (req: Request, res: Response) => {
     return res.status(200).json({ data: formatted });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: "Failed to fetch active panics" });
+    return res.status(500).json({ error: "Failed to fetch panic requests" });
   }
 };
 

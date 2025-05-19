@@ -10,6 +10,7 @@ generator client {
 model PanicEvent {
   id                 String   @id @default(uuid())
   status             String
+  aidRequired        String 
   serviceDisplayName String
   timeOfRequest      DateTime
   severity           String
