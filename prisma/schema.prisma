@@ -8,16 +8,31 @@ generator client {
 }
 
 model PanicEvent {
-  id        String   @id @default(uuid())
-  deviceId  String
-  severity  Severity
-  lat       Float
-  lng       Float
-  timestamp DateTime @default(now())
-  status    Status   @default(OPEN)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  status             String
+  serviceDisplayName String
+  timeOfRequest      DateTime
+  severity           String
+  lat                Float
+  lng                Float
+  locationLabel      String
+  userId             String
+  user               User     @relation(fields: [userId], references: [id])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
+
+model User {
+  id                    String       @id
+  firstName             String
+  lastName              String
+  email                 String
+  contactNumber         String
+  nextOfKinContactNumber String
+  externalId            String
+  panicEvents           PanicEvent[]
+}
+
 
 enum Severity {
   LOW
